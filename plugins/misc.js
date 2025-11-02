@@ -6,7 +6,6 @@ const {
 	toPTT,
 	prefix
 } = require("../lib/");
-const { downloadMediaMessage } = require('@adiwajshing/baileys')
 const { fromBuffer } = require('file-type')
 const config = require('../config');
 const fs = require('fs');
@@ -121,20 +120,39 @@ Function({
     pattern: 'whois ?(.*)',
     fromMe: isPublic,
     type: 'info'
-}, async (message, match) => {
-    let user = message.reply_message ? message.reply_message.sender : match.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
-    if (!user) return message.send('Need a User!');
-    try {
-        let pp = await message.client.profilePictureUrl(user, 'image');
-    } catch {
-        pp = 'https://i.imgur.com/b3hlzl5.jpg';
+}, async (message, match, client) => {
+    let pp;
+    let user = message.reply_message?.sender;
+    if (!user && match) {
+        user = match.replace(/[^0-9]/g, '') + '@s.whatsapp.net';
     }
-    let status = await message.client.fetchStatus(user);
-    const date = new Date(status.setAt);
-    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' };
-    const setAt = date.toLocaleString('en-US', options);
-    await message.send(pp, 'image', { caption: `*Name:* ${await message.client.getName(user)}\n*About:* ${status.status}\n*About Set Date:* ${setAt}` });
+    if (!user) return message.send('Need a User!');
+
+    try {
+        pp = await client.profilePictureUrl(user, 'image');
+    } catch {
+        pp = '';
+    }
+
+    try {
+        let status = await client.fetchStatus(user);
+        const date = new Date(status.setAt);
+        const options = { year: 'numeric', month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' };
+        const setAt = date.toLocaleString('en-US', options);
+
+        if (pp) {
+            return await message.send(pp, 'image', { 
+                caption: `*Name:* ${await client.getName(user)}\n*About:* ${status.status}\n*About Set Date:* ${setAt}`
+            });
+        } else {
+            await message.send(`*Name:* ${await client.getName(user)}\n*About:* ${status.status}\n*About Set Date:* ${setAt}`);
+        }
+    } catch (error) {
+        console.error('Error fetching status:', error);
+        await message.send('Unable to fetch user status.');
+    }
 });
+
 
 Function({
     pattern: 'mode ?(.*)',
@@ -183,6 +201,7 @@ Function({
     desc: 'Media to document',
     type: 'misc'
 }, async (message, match) => {
+	const { downloadMediaMessage } = global.Baileys
     if (!message.reply_message) return await message.reply('Reply to a media');
     const fileName = match || '';
     const buffer = await downloadMediaMessage(message.quoted.data, 'buffer', {}, {});
