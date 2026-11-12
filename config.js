@@ -6,11 +6,8 @@ if (fs.existsSync('config.env')) require('dotenv').config({ path: './config.env'
 const convertToBool = (text, fault = 'true') => text === fault;
 const toBool = (x) => (x && x.toLowerCase() === 'true') || false;
 
-global.apikey = { 'https://api.adithyan.xyz': 'free' };
-global.apiUrl = 'https://hermit-api.koyeb.app/';
-
 const DATABASE_URL = process.env.DATABASE_URL || './database.db';
-process.env.NODE_OPTIONS = '--max_old_space_size=2560';
+const hasCaCert = !!process.env.PG_CA_CERT;
 
 const DEBUG = convertToBool(process.env.DEBUG, 'true');
 
@@ -23,7 +20,7 @@ module.exports = {
   READ_MSG: toBool(process.env.READ_MSG),
   MSG_LOG: convertToBool(process.env.LOG_MSG),
   BLOCKCHAT: process.env.BLOCK_CHAT || false,
-  LANG: (process.env.LANGUAGE || 'EN').toUpperCase(),
+  LANG: ('EN').toUpperCase(),
   ALWAYS_ONLINE: toBool(process.env.ALWAYS_ONLINE),
   BOT_NAME: process.env.BOT_NAME || 'ʜᴇʀᴍɪᴛ',
   AUTOMUTE_MSG: process.env.AUTOMUTE_MSG || '_Group automuted!_\n_(Change this by setting var AUTOMUTE_MSG)_',
@@ -46,21 +43,24 @@ module.exports = {
   AUTH_FILE: process.env.AUTH_FILE || false,
   START_MSG: toBool(process.env.START_MSG || 'true'),
   DATABASE_URL: DATABASE_URL,
-  DATABASE: DATABASE_URL === './database.db' 
+  DATABASE: DATABASE_URL === "./database.db"
     ? new Sequelize({
-        dialect: 'sqlite',
+        dialect: "sqlite",
         storage: DATABASE_URL,
         logging: false,
-      }) 
+      })
     : new Sequelize(DATABASE_URL, {
-        dialect: 'postgres',
-        ssl: true,
-        protocol: 'postgres',
-        dialectOptions: {
-          native: true,
-          ssl: { require: true, rejectUnauthorized: false },
-        },
+        dialect: "postgres",
         logging: false,
+        dialectOptions: {
+          ssl: {
+            require: true,
+            rejectUnauthorized: hasCaCert, // 🔑 key line
+            ...(hasCaCert && {
+              ca: process.env.PG_CA_CERT.replace(/\\n/g, "\n"),
+            }),
+          },
+        },
       }),
   RBG_API_KEY: process.env.REMOVE_BG_API_KEY || false,
   BRAIN_ID: process.env.BRAIN_ID || 'bid=168613&key=EfbnX54Iy9PFIFp3',
